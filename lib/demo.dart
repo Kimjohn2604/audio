@@ -1,7 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_sound/flutter_sound.dart';
+import 'package:flutter_sound_record/flutter_sound_record.dart';
 import 'package:path/path.dart' as path;
 import 'package:permission_handler/permission_handler.dart';
 
@@ -31,18 +31,15 @@ class RecordAudioScreen extends StatefulWidget {
 }
 
 class _RecordAudioScreenState extends State<RecordAudioScreen> {
-  late FlutterSoundRecorder _audioRecorder;
+  late FlutterSoundRecord _audioRecorder;
   bool _isRecording = false;
   String _recordedFilePath = "";
-  String codec = Codec.defaultCodec.name;
+  AudioEncoder _audioEncoder = AudioEncoder.AAC;
 
   @override
   void initState() {
     super.initState();
-    _audioRecorder = FlutterSoundRecorder();
-    _audioRecorder.openRecorder().then((value) {
-      print("Audio session opened: $value");
-    });
+    _audioRecorder = FlutterSoundRecord();
   }
 
   Future<void> _checkPermissionAndStartRecording() async {
@@ -61,14 +58,13 @@ class _RecordAudioScreenState extends State<RecordAudioScreen> {
     return path.join(folderPath, fileName);
   }
 
-  String getExtension(String codec) {
+  String getExtension(AudioEncoder audioEncoder) {
     String extension = "aac";
-    if (Codec.aacADTS.name == codec) extension = "aac";
-    if (Codec.aacMP4.name == codec) extension = "aac";
-    if (Codec.amrNB.name == codec) extension = "amr";
-    if (Codec.amrWB.name == codec) extension = "amr";
-    if (Codec.flac.name == codec) extension = "FLAC"; // not support
-    if (Codec.opusCAF.name == codec) extension = "opus"; // not support
+    if (AudioEncoder.AAC == audioEncoder) extension = "aac";
+    if (AudioEncoder.AAC_HE == audioEncoder) extension = "aac";
+    if (AudioEncoder.AAC_LD == audioEncoder) extension = "aac";
+    if (AudioEncoder.AMR_NB == audioEncoder) extension = "amr";
+    if (AudioEncoder.AMR_WB == audioEncoder) extension = "amr"; // not support
     return extension;
   }
 
@@ -76,10 +72,10 @@ class _RecordAudioScreenState extends State<RecordAudioScreen> {
     if (!_isRecording) {
       //kiểm tra xem liệu ứng dụng có đang trong trạng thái ghi âm
       _recordedFilePath = await _getRecordedFilePath(getExtension(
-          codec)); //Hàm _getRecordedFilePath() trả về đường dẫn tới tệp ghi âm
-      await _audioRecorder.startRecorder(
-        toFile: _recordedFilePath,
-        codec: Codec.values.where((element) => element.name == codec).first,
+          _audioEncoder)); //Hàm _getRecordedFilePath() trả về đường dẫn tới tệp ghi âm
+      await _audioRecorder.start(
+        path: _recordedFilePath,
+        encoder: _audioEncoder,
       );
       setState(() {
         _isRecording = true;
@@ -90,7 +86,7 @@ class _RecordAudioScreenState extends State<RecordAudioScreen> {
 
   Future<void> _stopRecording() async {
     if (_isRecording) {
-      await _audioRecorder.stopRecorder();
+      await _audioRecorder.stop();
       setState(() {
         _isRecording = false;
       });
@@ -99,22 +95,22 @@ class _RecordAudioScreenState extends State<RecordAudioScreen> {
 
   @override
   void dispose() {
-    _audioRecorder.closeRecorder();
+    _audioRecorder.dispose();
     super.dispose();
   }
 
-  Widget getTextWidgets(List<String> strings) {
+  Widget getTextWidgets(List<AudioEncoder> strings) {
     return Wrap(
         children: strings
             .map((item) => GestureDetector(
                   onTap: () {
                     setState(() {
-                      codec = item;
+                      _audioEncoder = item;
                     });
                   },
                   child: Chip(
-                    backgroundColor: codec == item ? Colors.red : Colors.white,
-                    label: Text(item),
+                    backgroundColor: _audioEncoder == item ? Colors.red : Colors.white,
+                    label: Text(item.name),
                   ),
                 ))
             .toList());
@@ -131,7 +127,7 @@ class _RecordAudioScreenState extends State<RecordAudioScreen> {
         children: <Widget>[
           Container(
             color: Colors.amber,
-            child: getTextWidgets(Codec.values.map((e) => e.name).toList()),
+            child: getTextWidgets(AudioEncoder.values.map((e) => e).toList()),
           ),
           const SizedBox(
             height: 100,
